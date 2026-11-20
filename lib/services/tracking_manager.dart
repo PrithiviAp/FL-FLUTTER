@@ -22,12 +22,12 @@ class TrackingManager {
         showNotification: true,
         playSound: false,
       ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(15 * 1000),
-        autoRunOnBoot: true,
-        allowWakeLock: true,
-        allowWifiLock: true,
-      ),
+     foregroundTaskOptions: ForegroundTaskOptions(
+      eventAction: ForegroundTaskEventAction.repeat(15 * 1000),
+      autoRunOnBoot: false, // CHANGE: prevents RestartReceiver crash on Android 12+
+      allowWakeLock: true,
+      allowWifiLock: true,
+    ),
     );
     _configured = true;
   }
@@ -50,6 +50,10 @@ class TrackingManager {
       serviceId: 256,
       notificationTitle: 'Family Locator — tracking active',
       notificationText: 'Starting up…',
+      notificationIcon: const NotificationIcon(
+        metaDataName: 'com.familylocator.app.TRACKING_ICON',
+        backgroundColor: Colors.blue,
+      ),
       callback: startTrackingCallback,
     );
     return result is ServiceRequestSuccess;
