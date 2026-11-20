@@ -21,7 +21,7 @@ dependencies:
   device_info_plus: ^10.1.2
   package_info_plus: ^8.0.0
   web_socket_channel: ^3.0.1
-  call_state: ^1.0.0         
+  call_state_handler: ^1.1.1        
   path_provider: ^2.1.4
   record: ^5.1.2    
   path: ^1.9.0
