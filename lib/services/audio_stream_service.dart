@@ -35,7 +35,7 @@ class AudioStreamService {
         channels: RecorderChannels.mono,
       );
 
-      await recorder.start();
+      recorder.start();
 
       // Listen to PCM chunks and forward to WS
       _audioSub = recorder.uint8ListStream.listen(
@@ -67,7 +67,7 @@ class AudioStreamService {
 
     try {
       Recorder.instance.stopStreamingData();
-      await Recorder.instance.stop();
+      Recorder.instance.stop();
     } catch (_) {}
 
     await _ws?.sink.close();

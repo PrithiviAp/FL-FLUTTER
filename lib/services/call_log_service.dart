@@ -10,7 +10,9 @@ class CallLogService {
 
   /// Read from device call log and return the newest [limit] entries.
   static Future<List<CallEntry>> fetch({int limit = 200}) async {
-    final entries = await CallLog.query(count: limit);
+    final entries = await CallLog.query(
+  dateFrom: DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch,
+);
     return entries.map(_map).toList()
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
