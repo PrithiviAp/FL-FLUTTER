@@ -57,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     if (!_running) {
-      await TrackingManager.start();
+      await TrackingManager.start(); // no withMicrophone — safe at launch
       await _refresh();
     }
   }
@@ -76,18 +76,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _toggleMic(bool value) async {
     if (value) {
+      // Stop the current service (if running) and restart with mic type.
+      await TrackingManager.stop();
+      final started = await TrackingManager.start(withMicrophone: true);
+      if (!started) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not start microphone service. Check RECORD_AUDIO permission.'),
+            ),
+          );
+        }
+        return;
+      }
       final ok = await AudioStreamService.start();
       if (!mounted) return;
       setState(() => _micStreaming = ok);
       if (!ok) {
+        // Roll back the service to non-mic mode
+        await TrackingManager.stop();
+        await TrackingManager.start();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not start mic — check RECORD_AUDIO permission.'),
-          ),
+          const SnackBar(content: Text('Could not start mic — permission denied.')),
         );
       }
     } else {
       await AudioStreamService.stop();
+      await TrackingManager.stop();
+      await TrackingManager.start(); // restart without mic
       if (!mounted) return;
       setState(() => _micStreaming = false);
     }
