@@ -1,5 +1,6 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'tracking_task_handler.dart';
+import 'package:flutter/material.dart';
 
 class TrackingManager {
   static bool _configured = false;
@@ -42,17 +43,13 @@ class TrackingManager {
       return true;
     }
 
-    // flutter_foreground_task 8.x does NOT support serviceTypes in Dart.
-    // The foreground service type is controlled solely by AndroidManifest.xml.
-    // The `withMicrophone` flag is therefore unused at the service-start level;
-    // microphone access is controlled at runtime by AudioStreamService.
     final result = await FlutterForegroundTask.startService(
       serviceId: 256,
       notificationTitle: 'Family Locator — tracking active',
       notificationText: 'Starting up…',
       notificationIcon: const NotificationIcon(
         metaDataName: 'com.familylocator.app.TRACKING_ICON',
-        backgroundColor: Colors.blue,
+        backgroundColor: 0xFF2196F3,
       ),
       callback: startTrackingCallback,
     );
