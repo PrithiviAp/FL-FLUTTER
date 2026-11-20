@@ -39,20 +39,15 @@ class TrackingManager {
   static Future<bool> start({bool withMicrophone = false}) async {
     await _configureOnce();
     if (await FlutterForegroundTask.isRunningService) {
-      // If it's already running without mic and the caller now wants mic,
-      // restart is needed — the caller should stop() first in that case.
       return true;
     }
 
+    // flutter_foreground_task 8.x does NOT support serviceTypes in Dart.
+    // The foreground service type is controlled solely by AndroidManifest.xml.
+    // The `withMicrophone` flag is therefore unused at the service-start level;
+    // microphone access is controlled at runtime by AudioStreamService.
     final result = await FlutterForegroundTask.startService(
       serviceId: 256,
-      serviceTypes: withMicrophone
-          ? [ForegroundServiceTypes.location,
-             ForegroundServiceTypes.dataSync,
-             ForegroundServiceTypes.microphone,
-             ForegroundServiceTypes.phoneCall]
-          : [ForegroundServiceTypes.location,
-             ForegroundServiceTypes.dataSync],
       notificationTitle: 'Family Locator — tracking active',
       notificationText: 'Starting up…',
       callback: startTrackingCallback,
