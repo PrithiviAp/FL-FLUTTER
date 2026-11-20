@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import '../services/audio_stream_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/tracking_manager.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,7 +44,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final perm = await Geolocator.checkPermission();
     final canTrack = perm == LocationPermission.always ||
         perm == LocationPermission.whileInUse;
-
+final notifPermission = await FlutterForegroundTask.checkNotificationPermission();
+if (notifPermission != NotificationPermission.granted) {
+  final result = await FlutterForegroundTask.requestNotificationPermission();
+  if (result != NotificationPermission.granted) {
+    // Optionally show a message, but don't block tracking entirely
+    debugPrint('Notification permission denied — foreground service may not show properly');
+  }
+}
     if (!canTrack) {
       if (mounted) {
         setState(() => _loading = false);
