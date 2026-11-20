@@ -3,7 +3,7 @@ name: Build Flutter APK
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:   # allows manual trigger from Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,21 +16,19 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'   # change to your local Flutter version
+          flutter-version: '3.24.0'
           channel: stable
           cache: true
 
       - name: Install dependencies
-        working-directory: family_locator   # ← if Flutter project is at repo root, delete this line
         run: flutter pub get
 
       - name: Build release APK
-        working-directory: family_locator   # ← same as above
         run: flutter build apk --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: family_locator/build/app/outputs/flutter-apk/app-release.apk   # ← adjust path
+          path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
