@@ -67,7 +67,7 @@
 
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="location|dataSync|phoneCall"
+            android:foregroundServiceType="location|dataSync|microphone"
             android:exported="false"
             tools:replace="android:foregroundServiceType" />
         
