@@ -23,7 +23,7 @@ dependencies:
   web_socket_channel: ^3.0.1
   call_state_handler: ^1.1.1
   path_provider: ^2.1.4
-  phone_state: ^3.0.0
+  phone_state: ^2.1.1
   record: 5.1.0
   path: ^1.9.0
   call_log: ^6.0.0
